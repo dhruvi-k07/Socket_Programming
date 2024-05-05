@@ -8,15 +8,15 @@
 #include <unistd.h> // For read/write
 
 int main(int argc, char *argv[])
-{ 
-    char message[100];
+{
+    char message[620000];
     int server;
-    int portNumber = 8001; // Correct data type and value assignment
+    int portNumber = 16500; // Correct data type and value assignment
     socklen_t len;
     struct sockaddr_in servAdd;
 
     if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    { 
+    {
         fprintf(stderr, "Cannot create socket\n");
         exit(1);
     }
@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     if (inet_pton(AF_INET, "10.60.8.51", &servAdd.sin_addr) < 0)
     {
-        fprintf(stderr, " inet_pton() has failed\n");
+        fprintf(stderr, "inet_pton() has failed\n");
         exit(2);
     }
 
@@ -36,18 +36,38 @@ int main(int argc, char *argv[])
         exit(3);
     }
 
-    if (read(server, message, 100) < 0)
+    while (1) // Loop to allow multiple commands and responses
     {
-        fprintf(stderr, "read() error\n");
-        exit(3);
+        printf("client24$ ");
+        fgets(message, sizeof(message), stdin); // Read input including spaces
+        message[strcspn(message, "\n")] = '\0'; // Remove trailing newline if present
+
+        if (strlen(message) == 0) {
+            continue; // Skip empty messages
+        }
+
+        if (strcmp(message, "exit") == 0) {
+            printf("Exiting...\n");
+            break; // Exit loop if user types "exit"
+        }
+
+        // Check if the user wants to quit and send PID to server
+        if (strcmp(message, "quitc") == 0) {
+            sprintf(message, "quitc %d", getpid()); // Include PID in the message
+        }
+
+        write(server, message, strlen(message)); // Send the message to the server
+
+        int n = read(server, message, sizeof(message)-1); // Read response from server
+        if (n < 0) {
+            fprintf(stderr, "read() error\n");
+            break;
+        } else {
+            message[n] = '\0'; // Null-terminate the received data
+            printf("Server's response: %s\n", message); // Print server's response
+        }
     }
 
-    fprintf(stderr, "%s\n", message);
-    char buff[50];
-    printf("\nEnter the message to be sent to the server\n");
-    scanf("%49s", buff); // Corrected to avoid potential buffer overflow
-
-    write(server, buff, strlen(buff)); // Send only the actual message length
-
+    close(server); // Close the connection
     exit(0);
 }
